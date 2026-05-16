@@ -67,7 +67,7 @@ export default function App() {
     }
   }
 
-  // Système de téléchargement multi-images (Max 4) avec correction de chemin stricte
+  // Système de téléchargement multi-images à la racine du bucket (Contournement de l'erreur Invalid Path)
   const handleImagesUpload = async (e) => {
     try {
       setUploading(true);
@@ -84,21 +84,20 @@ export default function App() {
 
       for (const file of files) {
         const fileExt = file.name.split('.').pop();
-        // Nettoyage complet du nom du fichier pour éliminer les caractères spéciaux qui cassent l'URL
         const cleanedTime = Date.now();
         const randomId = Math.floor(Math.random() * 1000);
-        const fileName = `${cleanedTime}-${randomId}.${fileExt}`;
         
-        // CHEMIN SANS SLASH INITIAL : Évite l'erreur 'Invalid path specified in request URL'
-        const filePath = `products/${fileName}`;
+        // SOLUTION RADICALE : On enregistre directement le fichier à la racine du bucket
+        // Plus aucun sous-dossier, ce qui élimine l'erreur 'Invalid path specified in request URL'
+        const fileName = `yass-${cleanedTime}-${randomId}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('product-images')
-          .upload(filePath, file, { cacheControl: '3600', upsert: false });
+          .upload(fileName, file, { cacheControl: '3600', upsert: false });
 
         if (uploadError) throw uploadError;
 
-        const { data } = supabase.storage.from('product-images').getPublicUrl(filePath);
+        const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
         if (data && data.publicUrl) {
           uploadedUrls.push(data.publicUrl);
         }
