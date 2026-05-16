@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { ShoppingBag, Phone, ArrowUpRight, Check, Plus, Trash2, Edit3, Lock, LogOut, X, Upload, Loader, Menu, Instagram } from 'lucide-react';
 
+// Icône TikTok personnalisée en SVG pour correspondre au design Lucide
 const TikTokIcon = ({ size = 16 }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
@@ -11,11 +12,15 @@ const TikTokIcon = ({ size = 16 }) => (
 export default function App() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // États pour le filtrage de la vitrine
   const [selectedCategory, setSelectedCategory] = useState('Tous');
   const [selectedSubcategory, setSelectedSubcategory] = useState('Tous');
+  
+  // État pour l'ouverture du Menu Mobile (Burger)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // États Admin
+  // États de l'Espace Admin
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [password, setPassword] = useState('');
@@ -23,17 +28,17 @@ export default function App() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // Formulaire Produit avec tableau d'images (Max 4)
+  // Formulaire Produit avec tableau d'images (Max 4 photos)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
-    image_urls: [], // Tableau contenant jusqu'à 4 liens
+    image_urls: [], // Contiendra les liens des 4 photos
     category: 'Chaussures',
     subcategory: 'Homme'
   });
 
-  // État pour l'image actuellement affichée sur chaque produit dans la vitrine
+  // Index de l'image active pour chaque produit affiché dans la vitrine
   const [activeImageIndex, setActiveImageIndex] = useState({});
 
   const WHATSAPP_NUMBER = "221778364815"; 
@@ -62,7 +67,7 @@ export default function App() {
     }
   }
 
-  // Gestion de l'upload multi-images (Max 4) avec correction de chemin
+  // Système de téléchargement multi-images (Max 4) avec correction de chemin stricte
   const handleImagesUpload = async (e) => {
     try {
       setUploading(true);
@@ -70,6 +75,7 @@ export default function App() {
 
       const files = Array.from(e.target.files);
       
+      // Limite stricte à 4 images au total
       if (formData.image_urls.length + files.length > 4) {
         throw new Error("Vous ne pouvez pas ajouter plus de 4 photos par produit.");
       }
@@ -78,9 +84,12 @@ export default function App() {
 
       for (const file of files) {
         const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExt}`;
+        // Nettoyage complet du nom du fichier pour éliminer les caractères spéciaux qui cassent l'URL
+        const cleanedTime = Date.now();
+        const randomId = Math.floor(Math.random() * 1000);
+        const fileName = `${cleanedTime}-${randomId}.${fileExt}`;
         
-        // CORRECTION DU PATH : Ajout du préfixe explicite 'products/'
+        // CHEMIN SANS SLASH INITIAL : Évite l'erreur 'Invalid path specified in request URL'
         const filePath = `products/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
@@ -103,6 +112,7 @@ export default function App() {
     }
   };
 
+  // Supprimer une image de la prévisualisation avant validation
   const removeImageUrl = (indexToRemove) => {
     setFormData(prev => ({
       ...prev,
@@ -212,7 +222,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Navbar Responsive */}
+      {/* Navbar Responsive avec Menu et Réseaux */}
       <nav className={`sticky ${isAdmin ? 'top-[38px]' : 'top-0'} z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 px-4`}>
         <div className="max-w-7xl mx-auto h-16 flex items-center justify-between">
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-1 text-gray-700 hover:text-gold md:hidden">
@@ -238,7 +248,7 @@ export default function App() {
           </a>
         </div>
 
-        {/* Menu Mobile */}
+        {/* Menu Mobile Burger */}
         {isMobileMenuOpen && (
           <div className="fixed inset-0 bg-black/50 z-50 md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
             <div className="w-64 bg-white h-full p-6 space-y-8 flex flex-col justify-between shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -289,14 +299,14 @@ export default function App() {
         </div>
       </section>
 
-      {/* Catalogue */}
+      {/* Catalogue Vitrine */}
       <section id="catalogue" className="max-w-7xl mx-auto px-4 py-12 space-y-8">
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold tracking-tight">Notre Vitrine</h2>
           <div className="h-0.5 w-8 bg-gold mx-auto"></div>
         </div>
 
-        {/* Filtres */}
+        {/* Filtres Catégories */}
         <div className="space-y-4">
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none justify-start sm:justify-center">
             {['Tous', 'Ensembles', 'Chaussures', 'Accessoires'].map((category) => (
@@ -306,6 +316,7 @@ export default function App() {
             ))}
           </div>
 
+          {/* Filtres Public Cible */}
           {(selectedCategory === 'Tous' || selectedCategory === 'Ensembles' || selectedCategory === 'Chaussures') && (
             <div className="flex gap-2 justify-start sm:justify-center overflow-x-auto pb-1">
               {['Tous', 'Homme', 'Femme'].map((sub) => (
@@ -317,7 +328,7 @@ export default function App() {
           )}
         </div>
 
-        {/* Grille Produits */}
+        {/* Grille d'affichage des articles */}
         {loading ? (
           <div className="text-center py-12 text-gray-400 text-xs flex flex-col items-center gap-2">
             <Loader className="animate-spin text-gold" size={24} /> Chargement de la collection...
@@ -339,24 +350,24 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Carrousel d'images Produit */}
-                  <div className="relative aspect-[4/5] bg-gray-50 overflow-hidden group/img">
-                    <img src={currentImages[activeIndex]} alt={product.name} className="w-full h-full object-cover object-center transition duration-300" />
+                  {/* Image Carrousel dynamique */}
+                  <div className="relative aspect-[4/5] bg-gray-50 overflow-hidden">
+                    <img src={currentImages[activeIndex]} alt={product.name} className="w-full h-full object-cover object-center transition-all duration-300" />
                     
-                    {/* Badges de catégories */}
                     <div className="absolute top-3 left-3 flex gap-1 flex-wrap z-10">
                       <span className="bg-white/90 backdrop-blur-sm text-[9px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-full text-gray-800">{product.category}</span>
                       {product.subcategory && <span className="bg-gold text-white text-[9px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-full">{product.subcategory}</span>}
                     </div>
 
-                    {/* Indicateurs (petits points) si multi-images */}
+                    {/* Navigation par points si plusieurs photos */}
                     {currentImages.length > 1 && (
                       <div className="absolute bottom-3 inset-x-0 flex justify-center gap-1.5 z-10">
                         {currentImages.map((_, idx) => (
                           <button 
                             key={idx} 
+                            type="button"
                             onClick={() => setActiveImageIndex(prev => ({ ...prev, [product.id]: idx }))}
-                            className={`w-2 h-2 rounded-full transition ${idx === activeIndex ? 'bg-gold scale-110' : 'bg-white/60 hover:bg-white'}`}
+                            className={`w-2 h-2 rounded-full transition-all ${idx === activeIndex ? 'bg-gold scale-120' : 'bg-white/60 hover:bg-white'}`}
                           />
                         ))}
                       </div>
@@ -394,7 +405,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL : Ajouter / Modifier un produit (Gestion Multi-Photos) */}
+      {/* MODAL : Ajouter / Modifier un article (Gestion Multi-Photos) */}
       {showProductModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-sm w-full p-5 relative shadow-xl my-auto">
@@ -432,7 +443,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* Module Multi-Upload Galerie */}
+              {/* Module de Téléchargement Multi-Photos Galerie */}
               <div>
                 <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Photos de l'article ({formData.image_urls.length}/4)</label>
                 <label className="flex items-center justify-center gap-1.5 border border-dashed border-gray-300 rounded-xl py-3 px-3 text-xs font-semibold text-gray-600 bg-gray-50 cursor-pointer hover:bg-gray-100 transition">
@@ -441,12 +452,12 @@ export default function App() {
                   <input type="file" accept="image/*" multiple onChange={handleImagesUpload} disabled={uploading || formData.image_urls.length >= 4} className="hidden" />
                 </label>
 
-                {/* Prévisualisation des miniatures chargées avec bouton supprimer */}
+                {/* Miniatures de prévisualisation des photos chargées */}
                 {formData.image_urls.length > 0 && (
                   <div className="grid grid-cols-4 gap-2 mt-3">
                     {formData.image_urls.map((url, index) => (
-                      <div key={index} className="relative aspect-square border border-gray-100 rounded-lg overflow-hidden group">
-                        <img src={url} alt="Miniature" className="w-full h-full object-cover" />
+                      <div key={index} className="relative aspect-square border border-gray-100 rounded-lg overflow-hidden">
+                        <img src={url} alt="Aperçu" className="w-full h-full object-cover" />
                         <button 
                           type="button" 
                           onClick={() => removeImageUrl(index)} 
