@@ -6,11 +6,11 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // États pour le filtrage responsive
+  // États pour le filtrage responsive (Mobile-First)
   const [selectedCategory, setSelectedCategory] = useState('Tous');
   const [selectedSubcategory, setSelectedSubcategory] = useState('Tous');
   
-  // États Admin
+  // États de l'Espace Admin
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [password, setPassword] = useState('');
@@ -18,7 +18,7 @@ export default function App() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // Formulaire Produit
+  // Formulaire d'ajout / modification de Produit
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -52,34 +52,45 @@ export default function App() {
     }
   }
 
-  // Fonction pour prendre une photo depuis la galerie et l'uploader sur Supabase
+  // CORRECTION CRITIQUE : Upload sécurisé vers Supabase Storage
   const handleImageUpload = async (e) => {
     try {
       setUploading(true);
       if (!e.target.files || e.target.files.length === 0) {
-        throw new Error('Vous devez sélectionner une image.');
+        throw new Error('Vous devez sélectionner une image depuis votre galerie.');
       }
 
       const file = e.target.files[0];
       const fileExt = file.name.split('.').pop();
-      // Création un nom de fichier unique pour éviter les doublons
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`;
+      
+      // Génération d'un nom propre unique (sans espaces ni caractères accentués)
+      const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExt}`;
+      
+      // FIX "Invalid path" : On force un chemin sous forme de sous-dossier virtuel explicite
+      const filePath = `products/${fileName}`;
 
-      // Envoi du fichier dans le bucket 'product-images'
+      // Upload du fichier brut dans le bucket 'product-images'
       const { error: uploadError } = await supabase.storage
         .from('product-images')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
       if (uploadError) throw uploadError;
 
-      // Récupération de l'URL publique de l'image stockée
+      // Récupération de l'URL publique absolue
       const { data } = supabase.storage
         .from('product-images')
         .getPublicUrl(filePath);
 
-      setFormData({ ...formData, image_url: data.publicUrl });
-      alert("Image téléchargée avec succès !");
+      if (!data || !data.publicUrl) {
+        throw new Error("Impossible d'obtenir le lien de l'image.");
+      }
+
+      // Enregistrement de l'URL dans l'état local du formulaire
+      setFormData(prev => ({ ...prev, image_url: data.publicUrl }));
+      alert("✓ Image téléchargée avec succès !");
     } catch (error) {
       alert("Erreur lors de l'upload : " + error.message);
     } finally {
@@ -100,12 +111,15 @@ export default function App() {
 
   const handleSaveProduct = async (e) => {
     e.preventDefault();
+    
+    // Structure des données propre avant envoi à la table SQL
     const productData = {
       name: formData.name,
       description: formData.description,
       price: parseFloat(formData.price),
       image_url: formData.image_url || 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=600&q=80',
       category: formData.category,
+      // Si c'est un accessoire, pas besoin de sous-catégorie Homme/Femme
       subcategory: formData.category === 'Accessoires' ? null : formData.subcategory
     };
 
@@ -133,7 +147,7 @@ export default function App() {
   };
 
   const handleDeleteProduct = async (id) => {
-    if (window.confirm("Supprimer cet article définitivement ?")) {
+    if (window.confirm("Supprimer cet article définitivement du catalogue ?")) {
       try {
         const { error } = await supabase.from('products').delete().eq('id', id);
         if (error) throw error;
@@ -163,7 +177,7 @@ export default function App() {
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  // Filtrage intelligent
+  // Filtrage combiné Catégorie + Sous-catégorie
   const filteredProducts = products.filter(p => {
     const matchCategory = selectedCategory === 'Tous' || p.category === selectedCategory;
     const matchSubcategory = selectedSubcategory === 'Tous' || p.subcategory === selectedSubcategory;
@@ -173,10 +187,10 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-brandBlack antialiased font-sans">
       
-      {/* Barre Admin */}
+      {/* TopBar Admin */}
       {isAdmin && (
         <div className="bg-gold text-white px-4 py-2.5 flex justify-between items-center text-xs font-semibold sticky top-0 z-50 shadow-md">
-          <span>Gestion Boutique Active</span>
+          <span>Gestion Boutique Active (Yass'Afrik)</span>
           <div className="flex gap-2">
             <button 
               onClick={() => { setEditingProduct(null); setShowProductModal(true); }}
@@ -210,9 +224,9 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Hero Section Mobile-First */}
+      {/* Hero Section Mobile-First avec Logo en filigrane */}
       <section id="hero" className="relative bg-brandBlack text-white py-16 px-4 overflow-hidden flex flex-col items-center justify-center min-h-[55vh] text-center">
-        {/* Arrière-plan filigrane corrigé pour Vercel */}
+        {/* Filigrane d'arrière-plan avec le fichier propre sans espaces */}
         <div 
           className="absolute inset-0 opacity-10 bg-center bg-no-repeat bg-contain pointer-events-none scale-125"
           style={{ backgroundImage: `url('/logo_yass.jpg')` }}
@@ -229,7 +243,7 @@ export default function App() {
               Sublimez Votre Style au Quotidien
             </h1>
             <p className="text-gray-400 max-w-sm mx-auto text-xs font-light">
-              Découvrez nos ensembles, chaussures et accessoires haut de gamme confectionnés au Sénégal.
+              Découvrez nos ensembles, chaussures et accessoires haut de gamme confectionnés avec amour au Sénégal.
             </p>
           </div>
 
@@ -238,22 +252,23 @@ export default function App() {
               href="#catalogue" 
               className="inline-flex items-center gap-2 bg-white text-brandBlack px-6 py-3 rounded-full text-xs font-bold hover:bg-gold hover:text-white transition"
             >
-              <span>Parcourir les modèles</span>
+              <span>Parcourir la vitrine</span>
               <ArrowUpRight size={14} />
             </a>
           </div>
         </div>
       </section>
 
-      {/* Catalogue */}
+      {/* Catalogue de Vente */}
       <section id="catalogue" className="max-w-7xl mx-auto px-4 py-12 space-y-8">
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold tracking-tight">Notre Vitrine</h2>
           <div className="h-0.5 w-8 bg-gold mx-auto"></div>
         </div>
 
-        {/* Filtres Catégories Principales */}
+        {/* Filtres de Navigation Responsives */}
         <div className="space-y-4">
+          {/* Catégories mères */}
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none justify-start sm:justify-center">
             {['Tous', 'Ensembles', 'Chaussures', 'Accessoires'].map((category) => (
               <button
@@ -268,7 +283,7 @@ export default function App() {
             ))}
           </div>
 
-          {/* Filtres Sous-Catégories Homme / Femme (Masqués si Accessoires ou Tous est sélectionné sans produits typés) */}
+          {/* Sous-catégories Homme / Femme */}
           {(selectedCategory === 'Tous' || selectedCategory === 'Ensembles' || selectedCategory === 'Chaussures') && (
             <div className="flex gap-2 justify-start sm:justify-center overflow-x-auto pb-1">
               {['Tous', 'Homme', 'Femme'].map((sub) => (
@@ -286,14 +301,14 @@ export default function App() {
           )}
         </div>
 
-        {/* Grille Produits Écran Unique Mobile */}
+        {/* Liste des cartes produits */}
         {loading ? (
           <div className="text-center py-12 text-gray-400 text-xs flex flex-col items-center gap-2">
             <Loader className="animate-spin text-gold" size={24} />
             Chargement de la collection...
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-12 text-gray-400 text-xs">Aucun article ne correspond à cette sélection.</div>
+          <div className="text-center py-12 text-gray-400 text-xs">Aucun modèle disponible pour cette catégorie.</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProducts.map((product) => (
@@ -310,7 +325,7 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Image Pleine Largeur Mobile-friendly */}
+                {/* Bloc Image optimisé Mobile */}
                 <div className="relative aspect-[4/5] bg-gray-50 overflow-hidden">
                   <img src={product.image_url} alt={product.name} className="w-full h-full object-cover object-center" />
                   <div className="absolute top-3 left-3 flex gap-1 flex-wrap">
@@ -325,6 +340,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Corps de carte */}
                 <div className="p-4 flex flex-col flex-grow justify-between gap-3">
                   <div className="space-y-1">
                     <h3 className="text-base font-bold text-gray-900 leading-tight">{product.name}</h3>
@@ -349,7 +365,7 @@ export default function App() {
         )}
       </section>
 
-      {/* MODAL : Login Admin */}
+      {/* MODAL : Login Admin PopUp */}
       {showLoginModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-xs w-full p-5 relative shadow-xl">
@@ -377,7 +393,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL : Ajout / Modification Produit avec Galerie */}
+      {/* MODAL : Ajouter / Modifier un Produit depuis sa galerie */}
       {showProductModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-sm w-full p-5 relative shadow-xl my-auto">
@@ -388,7 +404,7 @@ export default function App() {
             
             <form onSubmit={handleSaveProduct} className="space-y-3.5">
               <div>
-                <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Nom</label>
+                <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Nom de l'article</label>
                 <input 
                   type="text" 
                   value={formData.name}
@@ -424,7 +440,7 @@ export default function App() {
 
               {formData.category !== 'Accessoires' && (
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Public cible</label>
+                  <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Public cible (Sous-catégorie)</label>
                   <select 
                     value={formData.subcategory}
                     onChange={(e) => setFormData({...formData, subcategory: e.target.value})}
@@ -436,13 +452,13 @@ export default function App() {
                 </div>
               )}
 
-              {/* SECTION IMAGE : Galerie en Direct */}
+              {/* Bouton d'upload direct Galerie */}
               <div>
                 <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Photo de l'article</label>
                 <div className="flex items-center gap-2">
                   <label className="flex-grow flex items-center justify-center gap-1.5 border border-dashed border-gray-300 rounded-xl py-2 px-3 text-xs font-semibold text-gray-600 bg-gray-50 cursor-pointer hover:bg-gray-100 transition">
                     <Upload size={14} className="text-gray-400" />
-                    <span>{uploading ? 'Téléchargement...' : 'Choisir de la galerie'}</span>
+                    <span>{uploading ? 'Téléchargement...' : 'Ouvrir la Galerie'}</span>
                     <input 
                       type="file" 
                       accept="image/*" 
@@ -453,7 +469,7 @@ export default function App() {
                   </label>
                 </div>
                 {formData.image_url && (
-                  <p className="text-[10px] text-green-600 mt-1 truncate">✓ Image chargée : {formData.image_url}</p>
+                  <p className="text-[10px] text-green-600 mt-1 truncate">✓ Image chargée avec succès</p>
                 )}
               </div>
 
@@ -471,7 +487,7 @@ export default function App() {
                 disabled={uploading}
                 className={`w-full bg-gold text-white py-2.5 rounded-xl font-bold transition text-xs ${uploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-brandBlack'}`}
               >
-                {editingProduct ? 'Enregistrer' : 'Publier sur la boutique'}
+                {editingProduct ? 'Enregistrer les modifications' : 'Publier sur la boutique'}
               </button>
             </form>
           </div>
@@ -484,7 +500,7 @@ export default function App() {
           <div className="space-y-3">
             <span className="text-xl font-bold tracking-widest font-serif block">YASS'AFRIK</span>
             <p className="text-gray-400 text-xs font-light leading-relaxed">
-              Vente de vêtements, chaussures et accessoires. Valoriser le savoir-faire local sénégalais à travers des collections modernes et authentiques.
+              Vente de vêtements, chaussures et accessoires. Valoriser le savoir-faire local sénégalais à travers des créations modernes et authentiques.
             </p>
           </div>
           <div className="space-y-3">
@@ -492,7 +508,7 @@ export default function App() {
             <ul className="space-y-1.5 text-xs text-gray-400 font-light">
               <li className="flex items-center gap-2"><Check size={12} className="text-gold" /> Créations faites au Sénégal</li>
               <li className="flex items-center gap-2"><Check size={12} className="text-gold" /> Commande WhatsApp instantanée</li>
-              <li className="flex items-center gap-2"><Check size={12} className="text-gold" /> Livraison partout</li>
+              <li className="flex items-center gap-2"><Check size={12} className="text-gold" /> Livraison rapide</li>
             </ul>
           </div>
           <div className="space-y-3">
